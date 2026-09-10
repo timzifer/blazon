@@ -132,7 +132,7 @@ blazon dist -r truchet
 | `superformula` | Gielis' superformula, drawn from curated shape families — star, flower, gear, crystal, leaf, shield. The default. |
 | `flowfield` | Streamlines through a Sherlock–Monro orientation field with fingerprint cores and deltas. Arch, loop and whorl come from the major version; minutiae emerge from the ridge spacing rule. |
 | `truchet` | Truchet tiles. Arcs meet at cell edge midpoints, so the marks join across the grid into loops and labyrinths. |
-| `polar` | A bitmap in rings and sectors instead of rows and columns, mirrored across a fold from the archetype stream. |
+| `polar` | A bitmap in rings and sectors instead of rows and columns, mirrored across a fold from the archetype stream, with a centre device in the hole and a radial profile that varies ring by ring. |
 | `cistercian` | Medieval numerals: one stave per version component, four digits per stave. Legible — you can read the version back out of it. |
 | `bishop` | The drunken bishop walk from OpenSSH randomart, for the terminal. |
 

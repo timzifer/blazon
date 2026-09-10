@@ -49,15 +49,14 @@ var thresholds = map[string]blazontest.Thresholds{
 		Floor:           10,
 		PrereleaseRatio: 0.35,
 	},
-	// polar is the weakest of the six, and the most volatile. Its marks are
-	// rings of thin wedges, which reduce to similar low-frequency content
-	// however the cells fall, so its floor sits well below the rest and its
-	// minima move most between architectures.
+	// polar remains the weakest of the six. A radial figure has a small
+	// low-frequency vocabulary, and every attempt to widen it traded one
+	// relation against another — see the renderer's own notes.
 	"polar": {
-		MinPatch:        10,
-		MinMinor:        10,
-		MinMajor:        12,
-		Floor:           4,
+		MinPatch:        11,
+		MinMinor:        11,
+		MinMajor:        15,
+		Floor:           5,
 		PrereleaseRatio: 0.35,
 	},
 	"superformula": {
