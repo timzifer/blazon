@@ -1,0 +1,9 @@
+# Normalise to LF in the repository and in every working tree.
+#
+# The gallery and the SVG marks are generated and byte-compared, so a checkout
+# that rewrote line endings would show a diff on every platform switch and make
+# the gallery job commit on every push.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary

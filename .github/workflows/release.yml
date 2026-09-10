@@ -1,0 +1,45 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # blazon signs its releases with its own marks, so the tag and the
+      # Release constant have to agree — otherwise the logo in the README
+      # would show a version that was never released.
+      - name: tag matches the Release constant
+        shell: bash
+        run: |
+          declared=$(go run ./cmd/blazon version)
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$declared" != "$tag" ]; then
+            echo "tag $GITHUB_REF_NAME does not match blazon.Release ($declared)"
+            exit 1
+          fi
+
+      # A tag that cannot pass its own distinctness suite has no business
+      # being released.
+      - name: test
+        run: go test ./...
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
