@@ -37,7 +37,7 @@ jobs:
       - name: test
         run: go test ./...
 
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
           args: release --clean
