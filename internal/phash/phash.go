@@ -52,24 +52,31 @@ const (
 	hashSide = 8
 )
 
-// Gray downsamples an image to n×n luminance values in [0,1]. Alpha is
-// composited over white, so a mark drawn on a transparent ground still has
-// the contrast it would have on a page.
-func Gray(img image.Image, n int) []float64 {
+// Gray downsamples an image to n×n luminance values in [0,1].
+func Gray(img image.Image, n int) []float64 { return boxSample(img, n, n) }
+
+// boxSample reduces an image to a w×h grid of mean luminance values in [0,1].
+// Alpha is composited over white, so a mark drawn on a transparent ground
+// still has the contrast it would have on a page.
+//
+// Averaging every source pixel in a cell, rather than picking one, is what
+// makes the reduction a measurement of the picture rather than of where the
+// sampling grid happened to land.
+func boxSample(img image.Image, w, h int) []float64 {
 	b := img.Bounds()
-	out := make([]float64, n*n)
+	out := make([]float64, w*h)
 	if b.Empty() {
 		return out
 	}
-	for oy := 0; oy < n; oy++ {
-		y0 := b.Min.Y + oy*b.Dy()/n
-		y1 := b.Min.Y + (oy+1)*b.Dy()/n
+	for oy := 0; oy < h; oy++ {
+		y0 := b.Min.Y + oy*b.Dy()/h
+		y1 := b.Min.Y + (oy+1)*b.Dy()/h
 		if y1 <= y0 {
 			y1 = y0 + 1
 		}
-		for ox := 0; ox < n; ox++ {
-			x0 := b.Min.X + ox*b.Dx()/n
-			x1 := b.Min.X + (ox+1)*b.Dx()/n
+		for ox := 0; ox < w; ox++ {
+			x0 := b.Min.X + ox*b.Dx()/w
+			x1 := b.Min.X + (ox+1)*b.Dx()/w
 			if x1 <= x0 {
 				x1 = x0 + 1
 			}
@@ -81,7 +88,7 @@ func Gray(img image.Image, n int) []float64 {
 					count++
 				}
 			}
-			out[oy*n+ox] = sum / float64(count)
+			out[oy*w+ox] = sum / float64(count)
 		}
 	}
 	return out
@@ -128,17 +135,18 @@ func P(img image.Image) Hash {
 // D computes the difference hash: a 9×8 grid compared horizontally. It is a
 // cheap second opinion with very different failure modes from P, used as a
 // cross-check rather than as the primary measure.
+//
+// The grid is box-averaged rather than point-sampled. Point sampling looks
+// simpler and is what most dHash implementations do, but it makes the measure
+// hostage to sub-pixel detail: shifting an anti-aliased edge by a fraction of
+// a pixel — a different rasteriser, a different compiler — moves the sampled
+// pixel across the edge and flips bits wholesale, in marks a human cannot tell
+// apart. Averaging over the cell measures the picture instead of the sampling
+// grid.
 func D(img image.Image) Hash {
 	const w, h = 9, 8
-	b := img.Bounds()
-	px := make([]float64, w*h)
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			sx := b.Min.X + x*b.Dx()/w
-			sy := b.Min.Y + y*b.Dy()/h
-			px[y*w+x] = luminance(img.At(sx, sy))
-		}
-	}
+	px := boxSample(img, w, h)
+
 	var out Hash
 	i := 0
 	for y := 0; y < h; y++ {

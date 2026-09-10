@@ -26,39 +26,42 @@ var thresholds = map[string]blazontest.Thresholds{
 	// skips the distance thresholds for it and checks that no two versions
 	// share a mark instead, which is why this entry is empty.
 	"cistercian": {},
-	"flowfield": {
-		MinPatch:        23,
-		MinMinor:        25,
+	"bishop": {
+		MinPatch:        17,
+		MinMinor:        28,
 		MinMajor:        24,
 		Floor:           17,
 		PrereleaseRatio: 0.35,
 	},
-	"bishop": {
-		MinPatch:        10,
-		MinMinor:        13,
-		MinMajor:        15,
-		Floor:           9,
+	"flowfield": {
+		MinPatch:        17,
+		MinMinor:        20,
+		MinMajor:        19,
+		Floor:           12,
 		PrereleaseRatio: 0.35,
 	},
+	// polar is the weakest of the six. Its marks are rings of thin wedges,
+	// which reduce to similar low-frequency content however the cells fall,
+	// so its floor sits noticeably lower than the rest.
 	"polar": {
-		MinPatch:        20,
-		MinMinor:        19,
-		MinMajor:        20,
-		Floor:           9,
+		MinPatch:        11,
+		MinMinor:        13,
+		MinMajor:        15,
+		Floor:           5,
 		PrereleaseRatio: 0.35,
 	},
 	"superformula": {
 		MinPatch:        6,
-		MinMinor:        9,
-		MinMajor:        20,
+		MinMinor:        13,
+		MinMajor:        22,
 		Floor:           2,
 		PrereleaseRatio: 0.35,
 	},
 	"truchet": {
-		MinPatch:        13,
+		MinPatch:        20,
 		MinMinor:        28,
 		MinMajor:        30,
-		Floor:           12,
+		Floor:           16,
 		PrereleaseRatio: 0.35,
 	},
 }

@@ -15,12 +15,16 @@ go test ./...
 Go 1.21 or newer. CI builds against both that floor and the current release,
 and fails if the two disagree with `go.mod`.
 
-The only dependency is `golang.org/x/image`, used for rasterising and for the
-bitmap font in contact sheets. It is pinned to v0.24.0 deliberately: later
-releases require Go 1.23 and then 1.25, and taking them would raise this
-library's floor for no benefit — v0.24.0 rasterises byte-identically to the
-current release for everything drawn here. Dependabot is configured not to
-offer those bumps.
+**The module has no dependencies, and `TestNoDependencies` keeps it that way.**
+That is not minimalism for its own sake. The two things a library like this
+would normally import — a rasteriser and a font — are exactly the two that
+decide what its pixels are, and a dependency that sharpened its anti-aliasing
+or adjusted a glyph would change every mark ever generated, arriving as a
+routine version bump. Both are written out here instead: `canvas/fill.go` and
+`canvas/font.go`.
+
+If you have a reason to add a dependency, say in the pull request what it can
+change about the rendered marks and how a bump would be caught.
 
 Before opening a pull request:
 
