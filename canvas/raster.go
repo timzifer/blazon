@@ -3,7 +3,6 @@ package canvas
 import (
 	"image"
 	"image/color"
-	"image/draw"
 	"math"
 )
 
@@ -70,7 +69,7 @@ func (r *Raster) Background(col color.Color) {
 	if _, _, _, a := col.RGBA(); a == 0 {
 		return
 	}
-	draw.Draw(r.img, r.img.Bounds(), image.NewUniform(col), image.Point{}, draw.Src)
+	fillRect(r.img, r.img.Bounds(), col)
 }
 
 // Fill implements Canvas.
@@ -115,6 +114,28 @@ func (r *Raster) rasterise(polys [][]Point, col color.Color) {
 	r.fill.blit(r.img, col)
 }
 
+// fillRect paints a rectangle in one colour, replacing whatever is under it.
+//
+// This is image/draw's Src over a uniform source, written out because that is
+// the only thing the whole package wanted from it, and the import brings a
+// general-purpose compositor along for it.
+func fillRect(img *image.RGBA, rect image.Rectangle, col color.Color) {
+	rect = rect.Intersect(img.Bounds())
+	if rect.Empty() {
+		return
+	}
+	cr, cg, cb, ca := col.RGBA()
+	// RGBA holds premultiplied 8-bit channels, which is the top byte of each
+	// of the 16-bit values color.Color reports.
+	p8 := [4]uint8{uint8(cr >> 8), uint8(cg >> 8), uint8(cb >> 8), uint8(ca >> 8)}
+	for y := rect.Min.Y; y < rect.Max.Y; y++ {
+		row := img.Pix[img.PixOffset(rect.Min.X, y) : img.PixOffset(rect.Max.X-1, y)+4]
+		for x := 0; x+4 <= len(row); x += 4 {
+			copy(row[x:x+4], p8[:])
+		}
+	}
+}
+
 // Cell implements Canvas using the built-in bitmap font. It exists so that the
 // character renderers still produce an image for the gallery, not because
 // anyone should prefer a PNG of a terminal mark over the terminal itself.
@@ -128,7 +149,7 @@ func (r *Raster) Cell(col, row int, ch rune, fg, bg color.Color) {
 
 	if _, _, _, a := bg.RGBA(); a > 0 {
 		rect := image.Rect(int(x0), int(y0), int(math.Ceil(x0+cw)), int(math.Ceil(y0+chh)))
-		draw.Draw(r.img, rect.Intersect(r.img.Bounds()), image.NewUniform(bg), image.Point{}, draw.Src)
+		fillRect(r.img, rect.Intersect(r.img.Bounds()), bg)
 	}
 	if ch == ' ' || ch == 0 {
 		return

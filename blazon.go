@@ -13,14 +13,13 @@
 package blazon
 
 import (
-	"bytes"
 	"fmt"
 	"image"
-	"image/png"
 	"sort"
 	"sync"
 
 	"github.com/timzifer/blazon/canvas"
+	"github.com/timzifer/blazon/internal/pngenc"
 )
 
 // DefaultRenderer is used when Options.Renderer is empty.
@@ -289,12 +288,16 @@ func PNG(version string, o Options) ([]byte, error) {
 }
 
 // EncodePNG encodes an image as PNG.
+//
+// The encoder is the library's own, for the same reason the rasteriser and
+// the font are: it is the last stage that decides what bytes a version turns
+// into, and importing image/png would hand that decision — and about a fifth
+// of a megabyte of binary — to something outside this repository.
+//
+// The error is retained in the signature because callers already handle one
+// and encoding is where a future format could fail; today it is always nil.
 func EncodePNG(img image.Image) ([]byte, error) {
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return pngenc.Encode(img), nil
 }
 
 // Text renders a version as a block of terminal output.
