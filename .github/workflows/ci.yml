@@ -79,12 +79,17 @@ jobs:
           go-version: stable
           cache: true
 
-      - name: install wasmtime
+      - name: install wasmtime and the wasm exec wrapper
         shell: bash
         run: |
           name="wasmtime-${WASMTIME_VERSION}-x86_64-linux"
           curl -sSfL "https://github.com/bytecodealliance/wasmtime/releases/download/${WASMTIME_VERSION}/${name}.tar.xz" | tar -xJ
           echo "$PWD/${name}" >> "$GITHUB_PATH"
+          # go test runs a cross-compiled binary through a helper it looks for
+          # on PATH by the name go_$GOOS_$GOARCH_exec. Go ships one for wasm
+          # but does not put it on PATH, and without it the test binary is
+          # exec'd directly and fails with "exec format error".
+          echo "$(go env GOROOT)/lib/wasm" >> "$GITHUB_PATH"
 
       - name: vet
         env:
