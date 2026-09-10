@@ -54,6 +54,15 @@ not aspirations**. If your change pushes any relation below its bound, the test
 fails — and the right response is usually to fix the renderer, not to lower the
 number.
 
+They sit about thirty percent below the observed minimum, and that margin is
+load-bearing. Measured minima are architecture-dependent: arm64 contracts float
+expressions that amd64 evaluates separately, which shifts an anti-aliased edge
+by a fraction of a pixel and can move a borderline pair by several bits. Means
+are stable to well under a bit; minima are not. `blazon dist` suggests bounds
+with that margin already applied — do not tighten them to whatever your own
+machine happens to measure, or the macOS leg of the CI matrix will find out for
+you.
+
 Lowering a threshold is sometimes correct. When it is, say so in the pull
 request and give the numbers: what the histogram looked like before, what it
 looks like now, and why the new value is still a useful bound.

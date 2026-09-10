@@ -59,7 +59,7 @@ func suggest(s blazontest.Stats) int {
 	if s.Count == 0 {
 		return 0
 	}
-	v := s.Min * 85 / 100
+	v := s.Min * 70 / 100
 	if v < 1 {
 		return 1
 	}
