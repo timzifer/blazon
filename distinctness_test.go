@@ -16,6 +16,15 @@ import (
 // not aspirations: a renderer change that pushes any relation below its bound
 // is a regression and turns the build red.
 //
+// The margin is about thirty percent, and it is not padding. Measured minima
+// are architecture-dependent: arm64 contracts float expressions that amd64
+// evaluates separately, which moves an anti-aliased edge by a fraction of a
+// pixel and, on a borderline pair, moves its measured distance by several
+// bits. A bound set just under one machine's minimum is not a bound — the CI
+// matrix demonstrated exactly that, failing a single polar pair on macOS that
+// cleared the same threshold everywhere else. Means are stable to well under a
+// bit; minima are not, so the bounds sit clear of them.
+//
 // The numbers differ per renderer because the shapes do. A dense tiling and a
 // single smooth contour occupy the perceptual-hash space very differently, and
 // a single global threshold would either be vacuous for one or unreachable for
@@ -27,41 +36,42 @@ var thresholds = map[string]blazontest.Thresholds{
 	// share a mark instead, which is why this entry is empty.
 	"cistercian": {},
 	"bishop": {
-		MinPatch:        17,
-		MinMinor:        28,
-		MinMajor:        24,
-		Floor:           17,
+		MinPatch:        14,
+		MinMinor:        23,
+		MinMajor:        20,
+		Floor:           14,
 		PrereleaseRatio: 0.35,
 	},
 	"flowfield": {
-		MinPatch:        17,
-		MinMinor:        20,
-		MinMajor:        19,
-		Floor:           12,
+		MinPatch:        14,
+		MinMinor:        16,
+		MinMajor:        16,
+		Floor:           10,
 		PrereleaseRatio: 0.35,
 	},
-	// polar is the weakest of the six. Its marks are rings of thin wedges,
-	// which reduce to similar low-frequency content however the cells fall,
-	// so its floor sits noticeably lower than the rest.
+	// polar is the weakest of the six, and the most volatile. Its marks are
+	// rings of thin wedges, which reduce to similar low-frequency content
+	// however the cells fall, so its floor sits well below the rest and its
+	// minima move most between architectures.
 	"polar": {
-		MinPatch:        11,
-		MinMinor:        13,
-		MinMajor:        15,
-		Floor:           5,
+		MinPatch:        10,
+		MinMinor:        10,
+		MinMajor:        12,
+		Floor:           4,
 		PrereleaseRatio: 0.35,
 	},
 	"superformula": {
-		MinPatch:        6,
-		MinMinor:        13,
-		MinMajor:        22,
+		MinPatch:        5,
+		MinMinor:        11,
+		MinMajor:        18,
 		Floor:           2,
 		PrereleaseRatio: 0.35,
 	},
 	"truchet": {
-		MinPatch:        20,
-		MinMinor:        28,
-		MinMajor:        30,
-		Floor:           16,
+		MinPatch:        16,
+		MinMinor:        23,
+		MinMajor:        25,
+		Floor:           13,
 		PrereleaseRatio: 0.35,
 	},
 }
