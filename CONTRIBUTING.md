@@ -125,6 +125,14 @@ looks like now, and why the new value is still a useful bound.
    gallery on every pull request and fails if the committed images do not
    match, so a stale gallery is a red build rather than a silent drift.
 
+   **Regenerate with the current Go release, not the 1.21 floor.** The
+   comparison is byte for byte, and the Go compiler is allowed to contract
+   float expressions differently between versions: the same code on Go 1.21 and
+   on Go 1.27 produces visually identical marks whose pixels differ slightly.
+   CI pins the gallery job to the current release for exactly this reason. It
+   is also why the library's own determinism check compares float renderers by
+   perceptual hash rather than by bytes — see `Caps.ByteExact`.
+
 ## Changing an existing renderer
 
 Any change to what a renderer draws changes the gallery, and the committed
