@@ -26,6 +26,13 @@ And distinguishability is a test, not a claim. Every renderer is measured
 across a corpus of 184 versions, and a change that makes patch bumps harder to
 tell apart turns the build red.
 
+**No dependencies.** Standard library only — including the rasteriser and the
+font. Those are the two things that decide what the pixels are, and a library
+whose whole premise is that a version always produces the same mark cannot
+outsource them: a dependency that sharpened its anti-aliasing would change
+every mark ever generated, arriving as a routine version bump. A test enforces
+it.
+
 ```go
 import "github.com/timzifer/blazon"
 
@@ -131,8 +138,11 @@ blazon dist -r truchet
 
 ## Output
 
-- **SVG** — no dependencies, deterministic number formatting.
-- **PNG** — anti-aliased, supersampled.
+- **SVG** — plain string building, deterministic number formatting.
+- **PNG** — anti-aliased by exact area coverage: each edge deposits the signed
+  area it sweeps per pixel column, and a running sum along the row gives
+  coverage. Filling a shape and summing the alpha returns its geometric area,
+  which is how the anti-aliasing is tested.
 - **Terminal** — half-block characters give each cell two square pixels, so
   vector renderers arrive as pictures rather than as ASCII art. Falls back to a
   density ramp under `NO_COLOR`.

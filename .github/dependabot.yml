@@ -1,6 +1,8 @@
 version: 2
 
 updates:
+  # The module has no dependencies, and a test enforces that. This entry is
+  # here so that the day one is added deliberately, it is also watched.
   - package-ecosystem: gomod
     directory: "/"
     schedule:
@@ -8,16 +10,6 @@ updates:
     commit-message:
       prefix: "chore"
     labels: ["dependencies"]
-    ignore:
-      # x/image dictates this module's minimum Go version: from v0.25.0 it
-      # requires Go 1.23, and from v0.39.0 Go 1.25. Taking those bumps would
-      # silently raise blazon's floor from 1.21, which is a decision to make
-      # deliberately rather than to let a bot make monthly. v0.24.0 rasterises
-      # byte-identically to the current release for everything this library
-      # draws — the gallery check proves it — so there is nothing to gain by
-      # following it.
-      - dependency-name: golang.org/x/image
-        versions: [">=0.25.0"]
 
   - package-ecosystem: github-actions
     directory: "/"

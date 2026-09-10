@@ -5,18 +5,13 @@ import (
 	"image/color"
 	"image/draw"
 	"math"
-
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
-	"golang.org/x/image/math/fixed"
-	"golang.org/x/image/vector"
 )
 
-// Raster is a pixel canvas backed by an anti-aliased scanline rasterizer.
+// Raster is a pixel canvas backed by an anti-aliased scanline rasteriser.
 // It shares the Path model with SVG, so a renderer draws once and both back
 // ends agree on the geometry.
 //
-// Supersampling is applied because the rasterizer anti-aliases coverage but
+// Supersampling is applied because the rasteriser anti-aliases coverage but
 // not the thin, densely packed strokes the flow-field renderer produces; at
 // 1:1 those alias into moiré.
 type Raster struct {
@@ -25,6 +20,7 @@ type Raster struct {
 	img        *image.RGBA
 	cols, rows int
 	path       Path
+	fill       *filler
 }
 
 var _ Canvas = (*Raster)(nil)
@@ -42,10 +38,11 @@ func NewRasterSS(w, h, ss int) *Raster {
 		ss = 1
 	}
 	return &Raster{
-		w:   w,
-		h:   h,
-		ss:  ss,
-		img: image.NewRGBA(image.Rect(0, 0, w*ss, h*ss)),
+		w:    w,
+		h:    h,
+		ss:   ss,
+		img:  image.NewRGBA(image.Rect(0, 0, w*ss, h*ss)),
+		fill: newFiller(w*ss, h*ss),
 	}
 }
 
@@ -82,27 +79,7 @@ func (r *Raster) Fill(col color.Color) {
 	if r.path.Empty() {
 		return
 	}
-	ras := r.newRasterizer()
-	s := float64(r.ss)
-	for _, sub := range r.path.subs {
-		if len(sub.segs) == 0 {
-			continue
-		}
-		ras.MoveTo(float32(sub.start.X*s), float32(sub.start.Y*s))
-		for _, seg := range sub.segs {
-			switch seg.kind {
-			case segLine:
-				ras.LineTo(float32(seg.p3.X*s), float32(seg.p3.Y*s))
-			case segCubic:
-				ras.CubeTo(
-					float32(seg.p1.X*s), float32(seg.p1.Y*s),
-					float32(seg.p2.X*s), float32(seg.p2.Y*s),
-					float32(seg.p3.X*s), float32(seg.p3.Y*s))
-			}
-		}
-		ras.ClosePath()
-	}
-	r.draw(ras, col)
+	r.rasterise(r.path.Flatten(), col)
 }
 
 // Stroke implements Canvas. The path is flattened and converted to fillable
@@ -112,36 +89,35 @@ func (r *Raster) Stroke(col color.Color, width float64) {
 	if r.path.Empty() || width <= 0 {
 		return
 	}
-	polys := StrokeOutline(r.path.Flatten(), width)
+	r.rasterise(StrokeOutline(r.path.Flatten(), width), col)
+}
+
+// rasterise accumulates polygons at the supersampled scale and composites
+// them in one pass, so overlapping pieces of the same shape merge rather than
+// compositing over each other and darkening at the seams.
+func (r *Raster) rasterise(polys [][]Point, col color.Color) {
 	if len(polys) == 0 {
 		return
 	}
-	ras := r.newRasterizer()
 	s := float64(r.ss)
+	r.fill.reset()
+	scaled := make([]Point, 0, 64)
 	for _, poly := range polys {
-		if len(poly) < 3 {
+		if len(poly) < 2 {
 			continue
 		}
-		ras.MoveTo(float32(poly[0].X*s), float32(poly[0].Y*s))
-		for _, p := range poly[1:] {
-			ras.LineTo(float32(p.X*s), float32(p.Y*s))
+		scaled = scaled[:0]
+		for _, p := range poly {
+			scaled = append(scaled, Point{X: p.X * s, Y: p.Y * s})
 		}
-		ras.ClosePath()
+		r.fill.addPolygon(scaled)
 	}
-	r.draw(ras, col)
+	r.fill.blit(r.img, col)
 }
 
-func (r *Raster) newRasterizer() *vector.Rasterizer {
-	return vector.NewRasterizer(r.w*r.ss, r.h*r.ss)
-}
-
-func (r *Raster) draw(ras *vector.Rasterizer, col color.Color) {
-	ras.Draw(r.img, r.img.Bounds(), image.NewUniform(col), image.Point{})
-}
-
-// Cell implements Canvas using a bitmap font. It exists so that the character
-// renderers still produce an image for the gallery, not because anyone should
-// prefer a PNG of a terminal mark over the terminal itself.
+// Cell implements Canvas using the built-in bitmap font. It exists so that the
+// character renderers still produce an image for the gallery, not because
+// anyone should prefer a PNG of a terminal mark over the terminal itself.
 func (r *Raster) Cell(col, row int, ch rune, fg, bg color.Color) {
 	if r.cols <= 0 || r.rows <= 0 {
 		return
@@ -158,26 +134,16 @@ func (r *Raster) Cell(col, row int, ch rune, fg, bg color.Color) {
 		return
 	}
 
-	face := basicfont.Face7x13
-	adv, ok := face.GlyphAdvance(ch)
-	if !ok {
-		return
+	// The largest whole scale that still fits the cell. Whole scales only:
+	// a bitmap font resampled to a fractional size loses the strokes that
+	// distinguish one randomart character from the next.
+	scale := int(math.Min(cw/GlyphW, chh/GlyphH))
+	if scale < 1 {
+		scale = 1
 	}
-	// Centre the glyph in its cell. The bitmap font has one fixed size, so the
-	// cell is padded rather than the glyph scaled.
-	gx := x0 + (cw-float64(adv)/64)/2
-	gy := y0 + (chh+float64(face.Metrics().CapHeight)/64)/2
-
-	d := font.Drawer{
-		Dst:  r.img,
-		Src:  image.NewUniform(fg),
-		Face: face,
-		Dot: fixed.Point26_6{
-			X: fixed.Int26_6(gx * 64),
-			Y: fixed.Int26_6(gy * 64),
-		},
-	}
-	d.DrawString(string(ch))
+	gx := x0 + (cw-float64(GlyphW*scale))/2
+	gy := y0 + (chh-float64(GlyphH*scale))/2
+	DrawGlyph(r.img, int(gx), int(gy), ch, fg, scale)
 }
 
 // Image returns the finished image, box-filtered down from the supersampled

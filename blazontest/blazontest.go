@@ -22,11 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/basicfont"
-	"golang.org/x/image/math/fixed"
-
 	"github.com/timzifer/blazon"
+	"github.com/timzifer/blazon/canvas"
 	"github.com/timzifer/blazon/internal/phash"
 )
 
@@ -246,6 +243,36 @@ func (s Suite) CheckFamilyCohesion(t testing.TB, corpus []string) {
 		t.Errorf("versions sharing a major are not closer to each other than to other majors: "+
 			"intra %.1f vs inter %.1f — the family policy is not doing anything",
 			rep.IntraMajor.Mean, rep.InterMajor.Mean)
+	}
+}
+
+// CheckMetricStability asserts that the measurement is a property of the marks
+// rather than of the resolution they happened to be rendered at.
+//
+// This is a check on the instrument, not on the renderer. A perceptual hash
+// that point-samples its grid will happily report six bits of difference
+// between two marks a human cannot tell apart, purely because an anti-aliased
+// edge moved by a fraction of a pixel — and thresholds calibrated against that
+// noise are measuring the rasteriser. Rendering the same corpus at two
+// resolutions and requiring the mean distance to agree is what keeps that
+// honest.
+func (s Suite) CheckMetricStability(t testing.TB, corpus []string, a, b int) {
+	t.Helper()
+	mean := func(size int) float64 {
+		sub := s
+		sub.Options.Size = size
+		rep, err := sub.Report(corpus)
+		if err != nil {
+			t.Fatalf("blazontest: %v", err)
+		}
+		return rep.All.Mean
+	}
+	ma, mb := mean(a), mean(b)
+	const tolerance = 2.0
+	if diff := ma - mb; diff > tolerance || diff < -tolerance {
+		t.Errorf("mean distance moved from %.1f at %dpx to %.1f at %dpx (%.1f bits); "+
+			"the measurement is tracking the render resolution, not the marks",
+			ma, a, mb, b, diff)
 	}
 }
 
@@ -541,7 +568,8 @@ func ContactSheet(r blazon.Renderer, versions []string, o blazon.Options, cols, 
 	if cell <= 0 {
 		cell = 128
 	}
-	const labelH = 14
+	// Room for the label plus a little air above and below it.
+	labelH := canvas.GlyphH*maxLabelScale + 6
 	rows := (len(versions) + cols - 1) / cols
 	if rows == 0 {
 		rows = 1
@@ -564,17 +592,32 @@ func ContactSheet(r blazon.Renderer, versions []string, o blazon.Options, cols, 
 		cx := (i % cols) * cell
 		cy := (i / cols) * (cell + labelH)
 		draw.Draw(sheet, image.Rect(cx, cy, cx+cell, cy+cell), img, image.Point{}, draw.Src)
-		label(sheet, cx+2, cy+cell+10, v)
+		scale := labelScaleFor(v, cell)
+		// Baseline-align the label whatever scale it ended up at, so a row of
+		// mixed scales still reads as one line.
+		top := cy + cell + 3 + (canvas.GlyphH*maxLabelScale-canvas.GlyphH*scale)/2
+		label(sheet, cx+3, top, v, scale)
 	}
 	return sheet, nil
 }
 
-func label(dst *image.RGBA, x, y int, s string) {
-	d := font.Drawer{
-		Dst:  dst,
-		Src:  image.NewUniform(color.RGBA{40, 40, 40, 255}),
-		Face: basicfont.Face7x13,
-		Dot:  fixed.P(x, y),
+// maxLabelScale is the largest whole multiple of the font size a label is
+// drawn at. Whole multiples only: a bitmap font resampled to a fractional size
+// loses strokes.
+const maxLabelScale = 2
+
+// labelScaleFor picks the largest scale whose label still fits its cell. A
+// long prerelease string in a narrow cell would otherwise run into its
+// neighbour, and a contact sheet whose captions overlap cannot be read.
+func labelScaleFor(s string, cellW int) int {
+	for scale := maxLabelScale; scale > 1; scale-- {
+		if canvas.StringWidth(s, scale) <= cellW-6 {
+			return scale
+		}
 	}
-	d.DrawString(s)
+	return 1
+}
+
+func label(dst *image.RGBA, x, y int, s string, scale int) {
+	canvas.DrawString(dst, x, y, s, color.RGBA{40, 40, 40, 255}, scale)
 }
