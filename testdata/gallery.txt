@@ -1,0 +1,24 @@
+# Gallery corpus: small and stable on purpose.
+#
+# The gallery is committed and diffed, so this list changes only when the
+# gallery is meant to change. It is deliberately much smaller than the
+# measurement corpus in blazontest/corpus.txt: a sheet a reader can take in at
+# a glance is worth more here than coverage.
+0.1.0
+0.2.0
+0.9.3
+1.0.0-rc.1
+1.0.0
+1.0.1
+1.0.2
+1.1.0
+1.2.0
+1.2.5
+2.0.0
+2.1.0
+2.1.1
+3.0.0
+3.4.1
+5.2.0
+8.0.0
+12.4.7
