@@ -1,0 +1,59 @@
+name: Bug report
+description: Something renders wrong, crashes, or is not reproducible
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version string
+      description: The version being rendered, if the problem is version-specific.
+      placeholder: "1.4.2"
+
+  - type: dropdown
+    id: renderer
+    attributes:
+      label: Renderer
+      options:
+        - superformula
+        - flowfield
+        - truchet
+        - polar
+        - cistercian
+        - bishop
+        - not renderer-specific
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: >
+        A command or a few lines of Go. `go run ./cmd/blazon <version> -r <renderer> -o out.svg`
+        is usually enough.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Output of `go version` and your OS.
+      render: shell
+
+  - type: checkboxes
+    id: determinism
+    attributes:
+      label: Determinism
+      description: >
+        The same version must always produce the same mark. If it does not,
+        that is the bug — say so here.
+      options:
+        - label: The same version rendered differently between runs
