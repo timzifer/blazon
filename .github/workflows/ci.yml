@@ -103,6 +103,87 @@ jobs:
           GOARCH: wasm
         run: go test ./...
 
+  tinygo:
+    # The size leg. blazon's cost to a caller is the code it drags into their
+    # binary, and the two arguments for owning the rasteriser, the font, the
+    # encoder and the digest were reproducibility and size. Reproducibility is
+    # measured everywhere else in this file; this is where size stops being an
+    # anecdote from someone's laptop.
+    #
+    # TinyGo is the right scale to weigh it on. It has no reflection-heavy
+    # runtime to hide behind, so an accidental fmt.Errorf on an image type or
+    # a stray image/draw shows up as hundreds of kilobytes rather than as
+    # noise.
+    #
+    # The leg also renders a mark under a genuinely different compiler and
+    # compares it byte for byte against gc's. That is a stronger statement
+    # than the wasm leg makes: LLVM and gc do not have to agree about floats,
+    # and if they ever stop agreeing, this is where it surfaces.
+    runs-on: ubuntu-latest
+    env:
+      WASMTIME_VERSION: v48.0.1
+      TINYGO_VERSION: "0.42.0"
+      # Bytes. A ratchet, not a law: raise it deliberately, in a commit that
+      # says what the library gained in exchange. The figure has roughly 20%
+      # of headroom over what the probe currently builds to, so ordinary
+      # renderer work does not trip it.
+      SIZE_BUDGET: 1300000
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: true
+
+      - name: install tinygo
+        shell: bash
+        run: |
+          deb="tinygo_${TINYGO_VERSION}_amd64.deb"
+          curl -sSfLO "https://github.com/tinygo-org/tinygo/releases/download/v${TINYGO_VERSION}/${deb}"
+          sudo dpkg -i "$deb"
+
+      - name: install wasmtime
+        shell: bash
+        run: |
+          name="wasmtime-${WASMTIME_VERSION}-x86_64-linux"
+          curl -sSfL "https://github.com/bytecodealliance/wasmtime/releases/download/${WASMTIME_VERSION}/${name}.tar.xz" | tar -xJ
+          echo "$PWD/${name}" >> "$GITHUB_PATH"
+
+      - name: the packages that carry the pixels must pass under tinygo
+        # The root package is left out on purpose: its suite renders whole
+        # corpora, and TinyGo's wasm heap runs out before it finishes. What is
+        # checked here is the code that decides bytes — the encoder, the
+        # digest, the noise, the hash and the canvas.
+        run: tinygo test -target=wasip1 ./canvas ./internal/...
+
+      - name: the probe fits in its budget
+        shell: bash
+        run: |
+          tinygo build -o /tmp/sizeprobe.wasm -target=wasip1 ./internal/sizeprobe
+          size=$(stat -c%s /tmp/sizeprobe.wasm)
+          echo "sizeprobe.wasm is $size bytes, budget $SIZE_BUDGET"
+          echo "sizeprobe.wasm: $size bytes (budget $SIZE_BUDGET)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$size" -gt "$SIZE_BUDGET" ]; then
+            echo "The probe grew past its budget. Either something heavy came"
+            echo "back into the imports — see TestNoHeavyStandardLibraryImports"
+            echo "— or the budget needs raising on purpose."
+            exit 1
+          fi
+
+      - name: the same mark under a different compiler
+        shell: bash
+        run: |
+          go run ./internal/sizeprobe 1.4.2 > /tmp/gc.png
+          wasmtime run /tmp/sizeprobe.wasm 1.4.2 > /tmp/tinygo.png
+          if ! cmp /tmp/gc.png /tmp/tinygo.png; then
+            echo "gc and TinyGo disagree about what version 1.4.2 looks like."
+            echo "The renderers are float-heavy, so this is not automatically a"
+            echo "bug — but it is a change in what the library promises, and it"
+            echo "needs a decision rather than a merge."
+            exit 1
+          fi
+          echo "gc and TinyGo render 1.4.2 to the same bytes"
+
   distinctness:
     # The gate. If a change makes patch bumps harder to tell apart, this job is
     # what says so — the invariant as a build rule rather than as a claim in

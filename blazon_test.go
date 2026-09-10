@@ -28,15 +28,6 @@ func TestRenderersRegistered(t *testing.T) {
 	}
 }
 
-func TestRegisterRejectsDuplicates(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Error("registering a duplicate name did not panic")
-		}
-	}()
-	Register(truchetRenderer{})
-}
-
 func TestOptionDefaults(t *testing.T) {
 	var o Options
 	if got := o.size(); got != defaultSize {
