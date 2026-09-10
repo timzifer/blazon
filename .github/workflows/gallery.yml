@@ -3,17 +3,23 @@ name: gallery
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: write
-
-concurrency:
-  group: gallery
-  cancel-in-progress: true
+  contents: read
 
 jobs:
-  render:
+  verify:
+    # The gallery is committed, and the committed images are the visual
+    # regression baseline: if a change alters what a renderer draws, the image
+    # diff in the pull request is the review.
+    #
+    # This job verifies rather than commits. An earlier version pushed the
+    # regenerated gallery back to main, which cannot work once main is
+    # protected — the token this job runs with is not an administrator, so its
+    # push would simply be rejected. Making staleness a build failure instead
+    # keeps the guarantee and removes the bot from the write path entirely.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,22 +28,32 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # Regenerating the gallery on every push makes the committed images a
-      # visual regression test: a refactor that changes what a renderer draws
-      # shows up as an image diff in this job's commit instead of going
-      # unnoticed.
-      - name: render the gallery
+      - name: regenerate
         run: go run ./cmd/blazon gallery -o docs/gallery -readme README.md
 
-      - name: commit if anything changed
+      - name: the committed gallery must match
         shell: bash
         run: |
           if git diff --quiet; then
-            echo "gallery unchanged"
+            echo "gallery is up to date"
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/gallery README.md
-          git commit -m "docs: regenerate gallery [skip ci]"
-          git push
+          echo "The committed gallery does not match what the code renders."
+          echo "Run this and commit the result:"
+          echo
+          echo "  go run ./cmd/blazon gallery -o docs/gallery -readme README.md"
+          echo
+          git diff --stat
+          exit 1
+
+      - name: regenerating twice must be a no-op
+        shell: bash
+        run: |
+          # A non-idempotent generator would make this job fail on every push
+          # even when nothing changed.
+          go run ./cmd/blazon gallery -o docs/gallery -readme README.md
+          if ! git diff --quiet; then
+            echo "The gallery generator is not idempotent: a second run changed files."
+            git diff --stat
+            exit 1
+          fi
