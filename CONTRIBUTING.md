@@ -114,14 +114,15 @@ looks like now, and why the new value is still a useful bound.
    go run ./cmd/blazon gallery -o docs/gallery -readme README.md
    ```
 
-   Run it twice. The second run must produce no diff — the gallery workflow
-   commits on change, so a non-idempotent generator would commit on every push.
+   Run it twice. The second run must produce no diff. CI regenerates the
+   gallery on every pull request and fails if the committed images do not
+   match, so a stale gallery is a red build rather than a silent drift.
 
 ## Changing an existing renderer
 
 Any change to what a renderer draws changes the gallery, and the committed
 images are the visual regression baseline. Regenerate them, and look at the
-image diff before you push: that diff is the review.
+image diff before you push: that diff is the review. CI checks that you did.
 
 If the change moves a threshold, re-run `dist` and update the table with the
 new numbers rather than nudging the old ones until the test goes green.
