@@ -1,0 +1,31 @@
+name: Idea
+description: A new renderer, back end, or measurement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you want
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it belongs here
+      description: >
+        blazon draws version numbers and nothing else, and the same version has
+        to produce the same mark everywhere, forever. Ideas that need a
+        non-version input or a non-deterministic one are out of scope — see
+        CONTRIBUTING.md.
+    validations:
+      required: true
+
+  - type: textarea
+    id: entropy
+    attributes:
+      label: For a new renderer — what would major, minor and patch control?
+      description: >
+        The archetype stream should drive something a viewer can name: a
+        symmetry count, a shape family, a pattern class. What would it be here,
+        and what would the two or three highest-contrast parameters be?
