@@ -33,7 +33,7 @@ const DefaultRenderer = "superformula"
 // logo in the README is the flowfield mark for this exact version, and the
 // release workflow refuses a tag that does not match. Bump it in the same
 // commit as the tag.
-const Release = "0.1.0"
+const Release = "0.2.0"
 
 // LogoRenderer draws the mark blazon uses for itself.
 const LogoRenderer = "flowfield"
