@@ -126,8 +126,9 @@ jobs:
       # Bytes. A ratchet, not a law: raise it deliberately, in a commit that
       # says what the library gained in exchange. The figure has roughly 20%
       # of headroom over what the probe currently builds to, so ordinary
-      # renderer work does not trip it.
-      SIZE_BUDGET: 1300000
+      # renderer work does not trip it — but not enough that fmt could come
+      # back unnoticed, which is what the budget is really watching for.
+      SIZE_BUDGET: 950000
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

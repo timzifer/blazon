@@ -9,8 +9,6 @@
 // test checks that against crypto/sha256 for every input the library uses.
 package sha256
 
-import "encoding/binary"
-
 // Size is the length of a SHA-256 digest in bytes.
 const Size = 32
 
@@ -103,12 +101,12 @@ func (d *Digest) Sum(b []byte) []byte {
 		padLen = 0
 	}
 	tail := pad[:1+padLen+8]
-	binary.BigEndian.PutUint64(tail[1+padLen:], c.len*8)
+	putUint64(tail[1+padLen:], c.len*8)
 	c.Write(tail)
 
 	var out [Size]byte
 	for i, v := range c.h {
-		binary.BigEndian.PutUint32(out[i*4:], v)
+		putUint32(out[i*4:], v)
 	}
 	return append(b, out[:]...)
 }
@@ -125,7 +123,7 @@ func Sum256(data []byte) [Size]byte {
 func (d *Digest) block(p []byte) {
 	var w [64]uint32
 	for i := 0; i < 16; i++ {
-		w[i] = binary.BigEndian.Uint32(p[i*4:])
+		w[i] = uint32be(p[i*4:])
 	}
 	for i := 16; i < 64; i++ {
 		s0 := rotr(w[i-15], 7) ^ rotr(w[i-15], 18) ^ (w[i-15] >> 3)
@@ -157,3 +155,20 @@ func (d *Digest) block(p []byte) {
 }
 
 func rotr(v uint32, n uint) uint32 { return v>>n | v<<(32-n) }
+
+// The three big-endian conversions the algorithm needs. encoding/binary would
+// do them, but it imports reflect, and reflect is the largest thing this
+// library could add to a caller's binary.
+
+func uint32be(b []byte) uint32 {
+	return uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+}
+
+func putUint32(b []byte, v uint32) {
+	b[0], b[1], b[2], b[3] = byte(v>>24), byte(v>>16), byte(v>>8), byte(v)
+}
+
+func putUint64(b []byte, v uint64) {
+	putUint32(b, uint32(v>>32))
+	putUint32(b[4:], uint32(v))
+}

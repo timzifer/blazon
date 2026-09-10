@@ -51,20 +51,26 @@ func TestNoDependencies(t *testing.T) {
 // TestNoHeavyStandardLibraryImports keeps the binary small on purpose.
 //
 // A program whose whole job is to draw one small mark should not carry a
-// general-purpose compositor, a general-purpose compressor, or the FIPS-140
-// module. Each of these was measured and replaced by code in this repository
-// that produces the same bytes: together they are about half a megabyte of a
-// two-megabyte binary. The rule is here because the imports come back by
-// accident — one fmt.Errorf on an image type, one hash.Hash — and nothing else
-// would notice.
+// general-purpose compositor, a general-purpose compressor, the FIPS-140
+// module, or reflection. Each of these was measured and replaced by code in
+// this repository that produces the same bytes; together they were two thirds
+// of what the library added to a caller's binary.
+//
+// The rule is here because they come back by accident and nothing else would
+// notice. A single fmt.Errorf brings reflection with it, and it is the kind of
+// line nobody reviews twice.
 func TestNoHeavyStandardLibraryImports(t *testing.T) {
 	banned := map[string]string{
-		"image/png":      "use internal/pngenc",
-		"image/draw":     "fill the pixels directly; see canvas.fillRect",
-		"compress/zlib":  "use internal/pngenc",
-		"compress/flate": "use internal/pngenc",
-		"crypto/sha256":  "use internal/sha256",
-		"hash/crc32":     "use internal/pngenc",
+		"image/png":       "use internal/pngenc",
+		"image/draw":      "fill the pixels directly; see canvas.fillRect",
+		"compress/zlib":   "use internal/pngenc",
+		"compress/flate":  "use internal/pngenc",
+		"crypto/sha256":   "use internal/sha256",
+		"hash/crc32":      "use internal/pngenc",
+		"fmt":             "assemble the string; every value here is already one",
+		"reflect":         "nothing in a drawing library needs to inspect a type",
+		"encoding/binary": "shift the bytes; encoding/binary imports reflect",
+		"sort":            "use slices; sort imports reflect",
 	}
 
 	fset := token.NewFileSet()
@@ -73,10 +79,13 @@ func TestNoHeavyStandardLibraryImports(t *testing.T) {
 		case err != nil:
 			return err
 		case d.IsDir():
-			// Test support and the probe programs are not shipped, and the
-			// replacements are checked against the standard library they
-			// replace, which means importing it.
-			if name := d.Name(); name == "testdata" || name == "probe" || name == ".git" {
+			// The rule covers what a caller links: the library and the
+			// packages it draws with. blazontest is exempt because its
+			// callers already link testing, which brings fmt and reflection
+			// anyway, and cmd/blazon because flag does the same. The probe
+			// directory is scratch and testdata is not code.
+			switch d.Name() {
+			case "testdata", "probe", ".git", "blazontest", "cmd":
 				return fs.SkipDir
 			}
 			return nil
