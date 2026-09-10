@@ -12,8 +12,15 @@ cd blazon
 go test ./...
 ```
 
-Go 1.27 or newer. The only dependency is `golang.org/x/image`, used for
-rasterising and for the bitmap font in contact sheets.
+Go 1.21 or newer. CI builds against both that floor and the current release,
+and fails if the two disagree with `go.mod`.
+
+The only dependency is `golang.org/x/image`, used for rasterising and for the
+bitmap font in contact sheets. It is pinned to v0.24.0 deliberately: later
+releases require Go 1.23 and then 1.25, and taking them would raise this
+library's floor for no benefit — v0.24.0 rasterises byte-identically to the
+current release for everything drawn here. Dependabot is configured not to
+offer those bumps.
 
 Before opening a pull request:
 

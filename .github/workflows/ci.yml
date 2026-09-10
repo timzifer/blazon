@@ -10,22 +10,38 @@ permissions:
 
 jobs:
   test:
-    # Three operating systems is not belt and braces here. The float-heavy
-    # renderers are only allowed to be reproducible within a perceptual-hash
-    # tolerance, because math.Sin and math.Pow may differ by an ulp between
-    # architectures. Running the suite on three of them turns that from an
-    # assumption into a measurement.
+    # Two axes, both load-bearing.
+    #
+    # Three operating systems, because the float-heavy renderers are only
+    # allowed to be reproducible within a perceptual-hash tolerance: math.Sin
+    # and math.Pow may differ by an ulp between architectures, and running the
+    # suite on three of them turns that from an assumption into a measurement.
+    #
+    # Two Go versions, because go.mod declares a floor and a floor nobody
+    # builds against is a guess. The "floor" leg is what makes it a fact.
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ["1.21", "stable"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version: ${{ matrix.go }}
           cache: true
+
+      - name: the floor in the matrix matches the one in go.mod
+        if: matrix.go != 'stable'
+        shell: bash
+        run: |
+          declared=$(awk '/^go /{print $2}' go.mod)
+          if [ "$declared" != "${{ matrix.go }}" ]; then
+            echo "go.mod declares go $declared but the matrix builds ${{ matrix.go }}."
+            echo "Update both, or the floor is not actually being tested."
+            exit 1
+          fi
 
       - name: gofmt
         shell: bash
