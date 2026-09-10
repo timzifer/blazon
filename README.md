@@ -66,7 +66,10 @@ Fields are length-prefixed, so `1.23.4` and `12.3.4` cannot collide.
 
 **2 — Parameter mapping.** A `Renderer` draws its parameters from those streams
 and decides what the mark *means*. This is the stage that determines whether
-the library is useful.
+the library is useful. Not every renderer hashes: `cistercian`, `dial` and
+`orbit` encode the number itself, so the version can be read back out of the
+mark. Those are marked `Ordered` and are held to uniqueness rather than to the
+distance thresholds — being systematic is the point of them.
 
 **3 — Render primitives.** A `canvas.Canvas` turns drawing calls into SVG,
 pixels or terminal cells. This stage decides only how it looks. Every renderer
@@ -134,6 +137,8 @@ blazon dist -r truchet
 | `truchet` | Truchet tiles. Arcs meet at cell edge midpoints, so the marks join across the grid into loops and labyrinths. |
 | `polar` | A bitmap in rings and sectors instead of rows and columns, mirrored across a fold from the archetype stream, with a centre device in the hole and a radial profile that varies ring by ring. |
 | `cistercian` | Medieval numerals: one stave per version component, four digits per stave. Legible — you can read the version back out of it. |
+| `dial` | One quadrant per component, the value written in binary as radial bands. The separator is the angle: the spokes are the dots of the version string. |
+| `orbit` | One ring per component, major innermost, the value written in binary as cells running clockwise from noon. The separator is the radius. |
 | `bishop` | The drunken bishop walk from OpenSSH randomart, for the terminal. |
 
 ## Output
@@ -177,6 +182,14 @@ Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
 
 ![cistercian family strip](docs/gallery/cistercian-family.png)
 
+### dial
+
+![dial across a version corpus](docs/gallery/dial-sheet.png)
+
+Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
+
+![dial family strip](docs/gallery/dial-family.png)
+
 ### flowfield
 
 ![flowfield across a version corpus](docs/gallery/flowfield-sheet.png)
@@ -184,6 +197,14 @@ Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
 Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
 
 ![flowfield family strip](docs/gallery/flowfield-family.png)
+
+### orbit
+
+![orbit across a version corpus](docs/gallery/orbit-sheet.png)
+
+Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
+
+![orbit family strip](docs/gallery/orbit-family.png)
 
 ### polar
 
