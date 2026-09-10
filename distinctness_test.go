@@ -35,6 +35,11 @@ var thresholds = map[string]blazontest.Thresholds{
 	// skips the distance thresholds for it and checks that no two versions
 	// share a mark instead, which is why this entry is empty.
 	"cistercian": {},
+	// dial and orbit are ordered for the same reason: they write the version
+	// in binary, one field per component, with the field boundary standing in
+	// for the dot.
+	"dial":  {},
+	"orbit": {},
 	"bishop": {
 		MinPatch:        14,
 		MinMinor:        23,
