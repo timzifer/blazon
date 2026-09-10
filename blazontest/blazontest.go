@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
 	"io"
 	"os"
 	"sort"
@@ -582,7 +581,7 @@ func ContactSheet(r blazon.Renderer, versions []string, o blazon.Options, cols, 
 	}
 
 	sheet := image.NewRGBA(image.Rect(0, 0, cols*cell, rows*(cell+labelH)))
-	draw.Draw(sheet, sheet.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
+	fillWhite(sheet)
 
 	for i, v := range versions {
 		img, err := blazon.ImageWith(r, v, o)
@@ -591,7 +590,7 @@ func ContactSheet(r blazon.Renderer, versions []string, o blazon.Options, cols, 
 		}
 		cx := (i % cols) * cell
 		cy := (i / cols) * (cell + labelH)
-		draw.Draw(sheet, image.Rect(cx, cy, cx+cell, cy+cell), img, image.Point{}, draw.Src)
+		blit(sheet, img, cx, cy)
 		scale := labelScaleFor(v, cell)
 		// Baseline-align the label whatever scale it ended up at, so a row of
 		// mixed scales still reads as one line.
@@ -620,4 +619,35 @@ func labelScaleFor(s string, cellW int) int {
 
 func label(dst *image.RGBA, x, y int, s string, scale int) {
 	canvas.DrawString(dst, x, y, s, color.RGBA{40, 40, 40, 255}, scale)
+}
+
+// fillWhite and blit are image/draw's Src operation for the two cases the
+// contact sheet needs. They are written out because the library refuses the
+// import — see TestNoHeavyStandardLibraryImports — and because a sheet only
+// ever paints an opaque background and copies opaque cells onto it.
+func fillWhite(dst *image.RGBA) {
+	for i := range dst.Pix {
+		dst.Pix[i] = 0xff
+	}
+}
+
+// blit copies src onto dst with its top-left corner at (x, y), clipped to dst.
+func blit(dst, src *image.RGBA, x, y int) {
+	b := src.Bounds()
+	for row := 0; row < b.Dy(); row++ {
+		dy := y + row
+		if dy < 0 || dy >= dst.Bounds().Dy() {
+			continue
+		}
+		w := b.Dx()
+		if x+w > dst.Bounds().Dx() {
+			w = dst.Bounds().Dx() - x
+		}
+		if w <= 0 {
+			continue
+		}
+		si := src.PixOffset(b.Min.X, b.Min.Y+row)
+		di := dst.PixOffset(x, dy)
+		copy(dst.Pix[di:di+w*4], src.Pix[si:si+w*4])
+	}
 }

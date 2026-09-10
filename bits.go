@@ -1,8 +1,9 @@
 package blazon
 
 import (
-	"crypto/sha256"
 	"encoding/binary"
+
+	"github.com/timzifer/blazon/internal/sha256"
 	"math"
 )
 
