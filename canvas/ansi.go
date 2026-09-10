@@ -1,8 +1,8 @@
 package canvas
 
 import (
-	"fmt"
 	"image/color"
+	"strconv"
 	"strings"
 )
 
@@ -114,8 +114,9 @@ func (a *ANSI) String() string {
 			top := img.RGBAAt(col, row*2)
 			bottom := img.RGBAAt(col, row*2+1)
 			if a.trueColor {
-				fmt.Fprintf(&b, "\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm▀",
-					top.R, top.G, top.B, bottom.R, bottom.G, bottom.B)
+				writeSGR(&b, 38, top.R, top.G, top.B)
+				writeSGR(&b, 48, bottom.R, bottom.G, bottom.B)
+				b.WriteRune('▀')
 				continue
 			}
 			b.WriteByte(rampByte(avgLuma(top, bottom)))
@@ -135,11 +136,29 @@ func (a *ANSI) writeGlyph(b *strings.Builder, g glyphCell) {
 	}
 	fr, fg2, fb, _ := g.fg.RGBA()
 	br, bg2, bb, ba := g.bg.RGBA()
-	fmt.Fprintf(b, "\x1b[38;2;%d;%d;%dm", fr>>8, fg2>>8, fb>>8)
+	writeSGR(b, 38, uint8(fr>>8), uint8(fg2>>8), uint8(fb>>8))
 	if ba > 0 {
-		fmt.Fprintf(b, "\x1b[48;2;%d;%d;%dm", br>>8, bg2>>8, bb>>8)
+		writeSGR(b, 48, uint8(br>>8), uint8(bg2>>8), uint8(bb>>8))
 	}
 	b.WriteRune(g.r)
+}
+
+// writeSGR emits one 24-bit colour escape: 38 sets the foreground, 48 the
+// background.
+//
+// Assembled by hand rather than with fmt, which the library does not import —
+// reflection is the heaviest thing a caller's binary could inherit from a
+// package that draws pictures, and three integers do not need it.
+func writeSGR(b *strings.Builder, ground int, r, g, bl uint8) {
+	b.WriteString("\x1b[")
+	b.WriteString(strconv.Itoa(ground))
+	b.WriteString(";2;")
+	b.WriteString(strconv.Itoa(int(r)))
+	b.WriteByte(';')
+	b.WriteString(strconv.Itoa(int(g)))
+	b.WriteByte(';')
+	b.WriteString(strconv.Itoa(int(bl)))
+	b.WriteByte('m')
 }
 
 // avgLuma is the mean relative luminance of the two pixels a cell covers,

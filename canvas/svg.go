@@ -1,7 +1,6 @@
 package canvas
 
 import (
-	"fmt"
 	"image/color"
 	"strconv"
 	"strings"
@@ -45,8 +44,8 @@ func (s *SVG) Background(col color.Color) {
 	if _, _, _, a := col.RGBA(); a == 0 {
 		return
 	}
-	fmt.Fprintf(&s.body, "  <rect width=\"%s\" height=\"%s\" fill=\"%s\"/>\n",
-		num(s.w), num(s.h), hex(col))
+	s.write("  <rect width=\"", num(s.w), "\" height=\"", num(s.h),
+		"\" fill=\"", hex(col), "\"/>\n")
 }
 
 // Fill implements Canvas.
@@ -56,9 +55,9 @@ func (s *SVG) Fill(col color.Color) {
 	if d == "" {
 		return
 	}
-	fmt.Fprintf(&s.body, "  <path d=\"%s\" fill=\"%s\"", d, hex(col))
+	s.write("  <path d=\"", d, "\" fill=\"", hex(col), "\"")
 	if o := opacity(col); o != "" {
-		fmt.Fprintf(&s.body, " fill-opacity=\"%s\"", o)
+		s.write(" fill-opacity=\"", o, "\"")
 	}
 	s.body.WriteString("/>\n")
 }
@@ -70,14 +69,26 @@ func (s *SVG) Stroke(col color.Color, width float64) {
 	if d == "" || width <= 0 {
 		return
 	}
-	fmt.Fprintf(&s.body,
-		"  <path d=\"%s\" fill=\"none\" stroke=\"%s\" stroke-width=\"%s\""+
-			" stroke-linecap=\"round\" stroke-linejoin=\"round\"",
-		d, hex(col), num(width))
+	s.write("  <path d=\"", d, "\" fill=\"none\" stroke=\"", hex(col),
+		"\" stroke-width=\"", num(width),
+		"\" stroke-linecap=\"round\" stroke-linejoin=\"round\"")
 	if o := opacity(col); o != "" {
-		fmt.Fprintf(&s.body, " stroke-opacity=\"%s\"", o)
+		s.write(" stroke-opacity=\"", o, "\"")
 	}
 	s.body.WriteString("/>\n")
+}
+
+// write appends the pieces of one element to the document.
+//
+// The markup is assembled from parts rather than from a format string because
+// fmt would be the single heaviest import in the library: it pulls in
+// reflection, which on a small target is a larger download than everything
+// this package does put together. Every value here is already a string by the
+// time it arrives, so the format string was never doing any work.
+func (s *SVG) write(parts ...string) {
+	for _, p := range parts {
+		s.body.WriteString(p)
+	}
 }
 
 func (s *SVG) pathData() string {
@@ -115,16 +126,17 @@ func (s *SVG) Cell(col, row int, r rune, fg, bg color.Color) {
 	cw, ch := s.w/float64(s.cols), s.h/float64(s.rows)
 	x, y := float64(col)*cw, float64(row)*ch
 	if _, _, _, a := bg.RGBA(); a > 0 {
-		fmt.Fprintf(&s.body, "  <rect x=\"%s\" y=\"%s\" width=\"%s\" height=\"%s\" fill=\"%s\"/>\n",
-			num(x), num(y), num(cw), num(ch), hex(bg))
+		s.write("  <rect x=\"", num(x), "\" y=\"", num(y),
+			"\" width=\"", num(cw), "\" height=\"", num(ch),
+			"\" fill=\"", hex(bg), "\"/>\n")
 	}
 	if r == ' ' || r == 0 {
 		return
 	}
-	fmt.Fprintf(&s.body,
-		"  <text x=\"%s\" y=\"%s\" font-family=\"monospace\" font-size=\"%s\""+
-			" text-anchor=\"middle\" dominant-baseline=\"central\" fill=\"%s\">%s</text>\n",
-		num(x+cw/2), num(y+ch/2), num(ch*0.8), hex(fg), escapeXML(string(r)))
+	s.write("  <text x=\"", num(x+cw/2), "\" y=\"", num(y+ch/2),
+		"\" font-family=\"monospace\" font-size=\"", num(ch*0.8),
+		"\" text-anchor=\"middle\" dominant-baseline=\"central\" fill=\"", hex(fg),
+		"\">", escapeXML(string(r)), "</text>\n")
 }
 
 // Bytes renders the finished document.
@@ -161,7 +173,13 @@ func num(v float64) string {
 
 func hex(c color.Color) string {
 	r, g, b, _ := c.RGBA()
-	return fmt.Sprintf("#%02x%02x%02x", uint8(r>>8), uint8(g>>8), uint8(b>>8))
+	out := []byte("#000000")
+	const digits = "0123456789abcdef"
+	for i, v := range [3]uint8{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)} {
+		out[1+i*2] = digits[v>>4]
+		out[2+i*2] = digits[v&0xf]
+	}
+	return string(out)
 }
 
 // opacity returns the fill-opacity attribute value for partly transparent

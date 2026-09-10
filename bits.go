@@ -1,10 +1,9 @@
 package blazon
 
 import (
-	"encoding/binary"
+	"math"
 
 	"github.com/timzifer/blazon/internal/sha256"
-	"math"
 )
 
 // BitReader is a deterministic, unlimited bit stream derived from a 32-byte
@@ -50,7 +49,7 @@ func (b *BitReader) nextByte() byte {
 		h.Write([]byte("blazon/v1/extend\x00"))
 		h.Write(b.root[:])
 		var ctr [8]byte
-		binary.BigEndian.PutUint64(ctr[:], b.counter)
+		putUint64(ctr[:], b.counter)
 		h.Write(ctr[:])
 		copy(b.block[:], h.Sum(nil))
 		b.byteIdx = 0

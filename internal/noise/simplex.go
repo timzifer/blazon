@@ -8,8 +8,6 @@
 package noise
 
 import (
-	"encoding/binary"
-
 	"github.com/timzifer/blazon/internal/sha256"
 	"math"
 )
@@ -46,6 +44,14 @@ func New(seed [32]byte) *Simplex {
 	return &s
 }
 
+// putUint64 writes a big-endian block counter, in place of encoding/binary,
+// which imports reflect.
+func putUint64(b []byte, v uint64) {
+	for i := 0; i < 8; i++ {
+		b[i] = byte(v >> (56 - 8*i))
+	}
+}
+
 // expand derives n bytes from a seed by hashing it with a block counter.
 func expand(seed [32]byte, n int) []byte {
 	out := make([]byte, 0, n+sha256.Size)
@@ -55,7 +61,7 @@ func expand(seed [32]byte, n int) []byte {
 		h.Write([]byte("blazon/v1/noise"))
 		h.Write([]byte{0})
 		h.Write(seed[:])
-		binary.BigEndian.PutUint64(ctr[:], block)
+		putUint64(ctr[:], block)
 		h.Write(ctr[:])
 		out = h.Sum(out)
 	}

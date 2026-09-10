@@ -1,10 +1,6 @@
 package blazon
 
-import (
-	"encoding/binary"
-
-	"github.com/timzifer/blazon/internal/sha256"
-)
+import "github.com/timzifer/blazon/internal/sha256"
 
 // Policy decides how much of a version's identity is inherited from its
 // neighbours. It is an API-level choice, not a design detail: it determines
@@ -68,8 +64,17 @@ func NewSeed(v Version) *Seed {
 
 func num(u uint64) []byte {
 	var b [8]byte
-	binary.BigEndian.PutUint64(b[:], u)
+	putUint64(b[:], u)
 	return b[:]
+}
+
+// putUint64 writes a big-endian counter. encoding/binary would do it, but it
+// imports reflect, which is more weight than every renderer in this package
+// put together.
+func putUint64(b []byte, v uint64) {
+	for i := 0; i < 8; i++ {
+		b[i] = byte(v >> (56 - 8*i))
+	}
 }
 
 // hashFields hashes a domain tag followed by length-prefixed fields. The
@@ -82,7 +87,7 @@ func hashFields(domain string, fields ...[]byte) [32]byte {
 	h.Write([]byte{0})
 	var n [8]byte
 	for _, f := range fields {
-		binary.BigEndian.PutUint64(n[:], uint64(len(f)))
+		putUint64(n[:], uint64(len(f)))
 		h.Write(n[:])
 		h.Write(f)
 	}

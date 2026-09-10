@@ -13,9 +13,11 @@
 package blazon
 
 import (
-	"fmt"
+	"errors"
 	"image"
-	"sort"
+	"slices"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/timzifer/blazon/canvas"
@@ -193,7 +195,7 @@ func Renderers() []string {
 	for n := range registry {
 		names = append(names, n)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 
@@ -202,7 +204,11 @@ func resolve(o Options) (Renderer, error) {
 	name := o.rendererName()
 	r, ok := Lookup(name)
 	if !ok {
-		return nil, fmt.Errorf("blazon: unknown renderer %q (have %v)", name, Renderers())
+		// Spelled out rather than formatted: fmt would pull reflection into
+		// every binary that links this library, which is more than the whole
+		// renderer set costs.
+		return nil, errors.New("blazon: unknown renderer " + strconv.Quote(name) +
+			" (have [" + strings.Join(Renderers(), " ") + "])")
 	}
 	return r, nil
 }

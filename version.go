@@ -2,7 +2,6 @@ package blazon
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -25,6 +24,21 @@ var (
 	ErrSyntax = errors.New("blazon: invalid semantic version")
 )
 
+// syntaxError reports a malformed version and wraps ErrSyntax, so that
+// errors.Is keeps working while the package stays clear of fmt: reflection is
+// the single heaviest thing this library could put in a caller's binary, and
+// nothing here formats anything but strings.
+type syntaxError struct {
+	orig   string
+	detail string
+}
+
+func (e *syntaxError) Error() string {
+	return ErrSyntax.Error() + " " + strconv.Quote(e.orig) + ": " + e.detail
+}
+
+func (e *syntaxError) Unwrap() error { return ErrSyntax }
+
 // ParseVersion parses a semantic version string. A single leading "v" is
 // tolerated because Go module tags carry one. Missing minor and patch
 // components default to zero, so "1" and "1.2" are accepted as "1.0.0" and
@@ -45,26 +59,26 @@ func ParseVersion(s string) (Version, error) {
 		v.Build = s[i+1:]
 		s = s[:i]
 		if err := checkDotIdents(v.Build, true); err != nil {
-			return Version{}, fmt.Errorf("%w %q: build metadata: %v", ErrSyntax, orig, err)
+			return Version{}, &syntaxError{orig: orig, detail: "build metadata: " + err.Error()}
 		}
 	}
 	if i := strings.IndexByte(s, '-'); i >= 0 {
 		v.Prerelease = s[i+1:]
 		s = s[:i]
 		if err := checkDotIdents(v.Prerelease, false); err != nil {
-			return Version{}, fmt.Errorf("%w %q: prerelease: %v", ErrSyntax, orig, err)
+			return Version{}, &syntaxError{orig: orig, detail: "prerelease: " + err.Error()}
 		}
 	}
 
 	parts := strings.Split(s, ".")
 	if len(parts) > 3 {
-		return Version{}, fmt.Errorf("%w %q: too many numeric components", ErrSyntax, orig)
+		return Version{}, &syntaxError{orig: orig, detail: "too many numeric components"}
 	}
 	dst := [...]*uint64{&v.Major, &v.Minor, &v.Patch}
 	for i, p := range parts {
 		n, err := parseNumeric(p)
 		if err != nil {
-			return Version{}, fmt.Errorf("%w %q: %v", ErrSyntax, orig, err)
+			return Version{}, &syntaxError{orig: orig, detail: err.Error()}
 		}
 		*dst[i] = n
 	}
@@ -79,15 +93,15 @@ func parseNumeric(p string) (uint64, error) {
 	}
 	for i := 0; i < len(p); i++ {
 		if p[i] < '0' || p[i] > '9' {
-			return 0, fmt.Errorf("non-digit %q in numeric component", p[i])
+			return 0, errors.New("non-digit " + strconv.QuoteRune(rune(p[i])) + " in numeric component")
 		}
 	}
 	if len(p) > 1 && p[0] == '0' {
-		return 0, fmt.Errorf("leading zero in numeric component %q", p)
+		return 0, errors.New("leading zero in numeric component " + strconv.Quote(p))
 	}
 	n, err := strconv.ParseUint(p, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("numeric component %q out of range", p)
+		return 0, errors.New("numeric component " + strconv.Quote(p) + " out of range")
 	}
 	return n, nil
 }
@@ -111,11 +125,12 @@ func checkDotIdents(s string, isBuild bool) error {
 			case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c == '-':
 				numeric = false
 			default:
-				return fmt.Errorf("invalid character %q in identifier %q", c, id)
+				return errors.New("invalid character " + strconv.QuoteRune(rune(c)) +
+					" in identifier " + strconv.Quote(id))
 			}
 		}
 		if !isBuild && numeric && len(id) > 1 && id[0] == '0' {
-			return fmt.Errorf("leading zero in numeric identifier %q", id)
+			return errors.New("leading zero in numeric identifier " + strconv.Quote(id))
 		}
 	}
 	return nil
