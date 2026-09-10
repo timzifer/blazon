@@ -16,6 +16,13 @@ import (
 // version bump. Owning both means the marks can only move when this repository
 // decides they move.
 func TestNoDependencies(t *testing.T) {
+	// A go.sum only exists to pin dependency hashes. With none to pin, its
+	// presence means either a stale file or a dependency that slipped in
+	// without go.mod being tidied.
+	if data, err := os.ReadFile("go.sum"); err == nil && len(strings.TrimSpace(string(data))) > 0 {
+		t.Errorf("go.sum is not empty, so something is being depended on:\n%s", data)
+	}
+
 	data, err := os.ReadFile("go.mod")
 	if err != nil {
 		t.Fatal(err)
