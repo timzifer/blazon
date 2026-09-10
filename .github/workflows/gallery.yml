@@ -23,9 +23,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # Pinned to the current release rather than to the floor in go.mod. The
+      # committed images are compared byte for byte, and the Go compiler is
+      # free to contract float expressions differently between versions, so the
+      # generator has to run on one agreed toolchain or this check measures the
+      # toolchain instead of the code.
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version: stable
           cache: true
 
       - name: regenerate
