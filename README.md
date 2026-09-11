@@ -15,23 +15,52 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT"></a>
 </p>
 
-Identicons for version numbers, in Go.
+**Give every version of your software a face.** blazon turns a version number
+into a small picture that a person recognises at a glance, without reading it.
 
-Not a general-purpose hash-to-picture library pointed at a version string. The
-version's structure is the input: major, minor and patch feed separate entropy
-streams, so how much two neighbouring releases resemble each other is a
-decision you make, not an accident of the hash.
+## Why
 
-And distinguishability is a test, not a claim. Every renderer is measured
-across a corpus of 184 versions, and a change that makes patch bumps harder to
-tell apart turns the build red.
+Version numbers are hard to see. `1.4.12` and `1.4.2` differ by one character in
+the middle of a string, and every mistake that follows from mixing them up looks
+like a different bug. A picture fails differently: two versions either look the
+same or they do not, and the eye answers in one glance.
 
-**No dependencies.** Standard library only — including the rasteriser and the
-font. Those are the two things that decide what the pixels are, and a library
-whose whole premise is that a version always produces the same mark cannot
-outsource them: a dependency that sharpened its anti-aliasing would change
-every mark ever generated, arriving as a routine version bump. A test enforces
-it.
+- **Spot the odd one in a list.** A release table, a deploy dashboard, a fleet of
+  agents, a row of build artifacts — one mark per row and the outlier stops
+  hiding among digits.
+- **Show the version without showing a version.** A mark in a corner, a favicon,
+  a splash screen, a login footer: users never see a number, but a screenshot in
+  a bug report still tells you which build it came from, and two screenshots
+  from "the same version" stop being a guess.
+- **Confirm what shipped.** The mark on the artifact, on the running service's
+  health page and in the release notes either match or they do not. No diffing
+  strings across three tabs.
+- **Make releases memorable.** A changelog entry, a tag, a launch post — the mark
+  is what people remember the release *as*.
+
+Two properties make that work, and both are enforced by tests rather than
+claimed:
+
+1. **Neighbours are never confusable.** A patch bump visibly changes the mark. A
+   change that makes patch bumps harder to tell apart turns the build red.
+2. **Family resemblance is deliberate.** The version's structure is the input —
+   major, minor and patch feed separate entropy streams — so all `1.x` marks read
+   as relatives while `2.0.0` starts over. How closely neighbours resemble each
+   other is [a setting](docs/how-it-works.md#policy-how-related-should-neighbours-look),
+   not an accident of a hash.
+
+And if you would rather a person be able to *read* the version back out of the
+mark, three of the renderers encode the number itself instead of hashing it.
+
+## Use it
+
+Hosted, for a README or a web UI — no build step:
+
+```html
+<img src="https://api.blazon.build/v1/mark/1.4.2.svg" width="24" alt="v1.4.2">
+```
+
+In Go:
 
 ```go
 import "github.com/timzifer/blazon"
@@ -41,245 +70,30 @@ png, err := blazon.PNG("1.4.2", blazon.Options{Renderer: "flowfield", Size: 512}
 txt, err := blazon.Text("1.4.2", blazon.Options{Renderer: "bishop"})
 ```
 
+From a terminal or a build script:
+
 ```
 go install github.com/timzifer/blazon/cmd/blazon@latest
 
-blazon 1.4.2                        # terminal
+blazon 1.4.2                        # draw it in the terminal
 blazon 1.4.2 -r flowfield -o x.svg
-blazon dist -r superformula         # the distance histogram behind the thresholds
 ```
 
-## How it works
-
-Three stages. Each one is a seam you can cut at.
-
-**1 — Entropy.** Not `sha256("1.4.2")` in one piece. Four separated streams:
-
-```
-h0 = hash(major)                      archetype
-h1 = hash(major, minor)               variant
-h2 = hash(major, minor, patch)        detail
-h3 = hash(full version)               prerelease
-```
-
-Fields are length-prefixed, so `1.23.4` and `12.3.4` cannot collide.
-
-**2 — Parameter mapping.** A `Renderer` draws its parameters from those streams
-and decides what the mark *means*. This is the stage that determines whether
-the library is useful. Not every renderer hashes: `cistercian`, `dial` and
-`orbit` encode the number itself, so the version can be read back out of the
-mark. Those are marked `Ordered` and are held to uniqueness rather than to the
-distance thresholds — being systematic is the point of them.
-
-**3 — Render primitives.** A `canvas.Canvas` turns drawing calls into SVG,
-pixels or terminal cells. This stage decides only how it looks. Every renderer
-works on every back end.
-
-## Policy: how related should neighbours look?
-
-An API choice, not a design decision:
-
-| Policy | Effect |
-| --- | --- |
-| `PolicyFamilyAmplified` (default) | Major sets the archetype, minor the variant, patch the detail — and each renderer routes two or three of its highest-contrast parameters through the patch stream, so adjacent patches stay in the family but are never hard to tell apart. |
-| `PolicyFamily` | The plain cascade. Patch changes only fine detail. |
-| `PolicyIndependent` | Every stream comes from the full version. Neighbours look unrelated: maximum distinguishability, no family information. |
-
-A prerelease never changes the core streams: `1.0.0-rc.1` still reads as a
-`1.0.0`, marked by a small band of dots.
-
-## The testable invariant
-
-This is the part that separates blazon from any identicon port.
-
-Marks are rendered across a version corpus, reduced to a 128-bit perceptual
-hash — a DCT hash plus a difference hash, because either alone confuses shapes
-the other separates — and the Hamming distances between related versions are
-held to per-renderer thresholds:
-
-```go
-blazontest.Suite{
-    Renderer:   myRenderer,
-    Thresholds: blazontest.Thresholds{MinPatch: 6, MinMinor: 9, MinMajor: 20, Floor: 2},
-}.Run(t)
-```
-
-The suite checks:
-
-- **patch, minor and major neighbours** clear their minimum distances;
-- **no pair anywhere** in the corpus falls below the global floor;
-- **family cohesion** — versions sharing a major really are closer to each
-  other than to other majors, so the family policy is not a lie;
-- **prereleases stay close** to their release, bounded from above rather than
-  below;
-- **uniqueness** — no two versions render to the same bytes, exactly rather
-  than perceptually;
-- **determinism** — the same version renders identically, byte for byte where a
-  renderer declares it can.
-
-Measurement is monochrome on purpose. A luminance-based hash scores two marks
-differing only in hue as identical, so measuring in colour would credit colour
-for distinctness the form does not have. Judging form alone makes the guarantee
-hold in print, in a monochrome terminal, and for a colour-blind reader.
-
-Thresholds are calibrated from each renderer's own histogram, not guessed:
-
-```
-blazon dist -r truchet
-```
-
-## Renderers
-
-| Name | What it is |
-| --- | --- |
-| `superformula` | Gielis' superformula, drawn from curated shape families — star, flower, gear, crystal, leaf, shield. The default. |
-| `flowfield` | Streamlines through a Sherlock–Monro orientation field with fingerprint cores and deltas. Arch, loop and whorl come from the major version; minutiae emerge from the ridge spacing rule. |
-| `truchet` | Truchet tiles. Arcs meet at cell edge midpoints, so the marks join across the grid into loops and labyrinths. |
-| `polar` | A bitmap in rings and sectors instead of rows and columns, mirrored across a fold from the archetype stream, with a centre device in the hole and a radial profile that varies ring by ring. |
-| `cistercian` | Medieval numerals: one stave per version component, four digits per stave. Legible — you can read the version back out of it. |
-| `dial` | One quadrant per component, the value written in binary as radial bands. The separator is the angle: the spokes are the dots of the version string. |
-| `orbit` | One ring per component, major innermost, the value written in binary as cells running clockwise from noon. The separator is the radius. |
-| `bishop` | The drunken bishop walk from OpenSSH randomart, for the terminal. |
-
-## Output
-
-- **SVG** — plain string building, deterministic number formatting.
-- **PNG** — anti-aliased by exact area coverage: each edge deposits the signed
-  area it sweeps per pixel column, and a running sum along the row gives
-  coverage. Filling a shape and summing the alpha returns its geometric area,
-  which is how the anti-aliasing is tested.
-- **Terminal** — half-block characters give each cell two square pixels, so
-  vector renderers arrive as pictures rather than as ASCII art. Falls back to a
-  density ramp under `NO_COLOR`.
-
-Colour is derived in OKLCH with gamut mapping, held in a lightness band that
-keeps contrast on both a white page and a dark terminal.
-
-## Hosted marks
-
-If all you want is a mark in a README, there is an endpoint for it:
-
-```
-https://api.blazon.build/v1/mark/1.4.2.svg
-https://api.blazon.build/v1/mark/1.4.2.svg?renderer=flowfield&bg=dark
-https://api.blazon.build/v1/mark/1.4.2.png?renderer=bishop&size=128
-```
-
-`/v1/mark/{version}.{svg|png|txt}`, with `renderer`, `size`, `padding`,
-`policy`, `palette`, `bg`, `cols` and `nocolor` spelled exactly as the CLI
-spells them. `/v1/renderers` lists what exists and the current size ceilings;
-`/v1/healthz` reports which release is deployed. A mark is a pure function of
-its URL, so the answers are cacheable forever and are served that way.
-
-It runs the same code this repository publishes — the deploy compares every
-response against a `go run` of the same version, byte for byte, and refuses to
-ship on a disagreement. So the marks are the marks. What differs is the budget.
-
-`size` runs from 16 up, with a ceiling per format: **1024 for SVG, 128 for
-PNG**. The difference is not arbitrary. SVG emits geometry, and its cost is
-whatever the renderer's own maths costs — the requested size only ever reaches
-the `viewBox` attribute. PNG rasterises and deflates, so its cost grows with
-the square of the edge length.
-
-That is a limit of one small deployment, not of the library. `blazon.PNG` has
-no ceiling, no renderer is excluded, and rendering locally costs a few
-milliseconds:
-
-```go
-data, err := blazon.PNG("1.4.2", blazon.Options{Renderer: "flowfield", Size: 1024})
-```
-
-Fetching a mark that has already been drawn is not rate limited; drawing a new
-one is, per address. Asking for a few hundred distinct marks in a burst will
-meet a `429`, and the answer to that is a `for` loop against the library rather
-than against the endpoint.
-
-The service is best effort and carries no availability promise. Anything that
-matters should render its own marks — that is the whole point of a library
-with no dependencies.
-
-## Gallery
-
-Generated by `blazon gallery` and verified in CI: if the committed images stop
-matching what the code renders, the build fails.
-
-<!-- gallery:start -->
-
-<!-- Generated by `blazon gallery`. Do not edit by hand. -->
-
-### bishop
-
-Terminal renderer on a 17×10 character grid.
-
-![bishop across a version corpus](docs/gallery/bishop-sheet.png)
-
-Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
-
-![bishop family strip](docs/gallery/bishop-family.png)
-
-### cistercian
-
-![cistercian across a version corpus](docs/gallery/cistercian-sheet.png)
-
-Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
-
-![cistercian family strip](docs/gallery/cistercian-family.png)
-
-### dial
-
-![dial across a version corpus](docs/gallery/dial-sheet.png)
-
-Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
-
-![dial family strip](docs/gallery/dial-family.png)
-
-### flowfield
-
-![flowfield across a version corpus](docs/gallery/flowfield-sheet.png)
-
-Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
-
-![flowfield family strip](docs/gallery/flowfield-family.png)
-
-### orbit
-
-![orbit across a version corpus](docs/gallery/orbit-sheet.png)
-
-Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
-
-![orbit family strip](docs/gallery/orbit-family.png)
-
-### polar
-
-![polar across a version corpus](docs/gallery/polar-sheet.png)
-
-Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
-
-![polar family strip](docs/gallery/polar-family.png)
-
-### superformula (default)
-
-![superformula across a version corpus](docs/gallery/superformula-sheet.png)
-
-Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
-
-![superformula family strip](docs/gallery/superformula-family.png)
-
-### truchet
-
-![truchet across a version corpus](docs/gallery/truchet-sheet.png)
-
-Family: `1.0.0` → `1.0.1` → `1.0.2` → `1.1.0` → `2.0.0`
-
-![truchet family strip](docs/gallery/truchet-family.png)
-
-<!-- gallery:end -->
-
-## Contributing
-
-A new renderer needs an entry in the threshold table and has to pass
-`blazontest.Suite`; see [CONTRIBUTING.md](CONTRIBUTING.md) for how to calibrate
-one.
+**No dependencies** — standard library only, including the rasteriser and the
+font. A library whose premise is that a version always produces the same mark
+cannot outsource the code that decides what the pixels are.
+[Why that matters](docs/how-it-works.md#no-dependencies).
+
+## Docs
+
+- **[Renderers and gallery](docs/renderers.md)** — the eight marks, and what
+  every version looks like in each.
+- **[How it works](docs/how-it-works.md)** — entropy streams, family policy, the
+  output back ends, and the distinctness test suite.
+- **[Hosted service](docs/service.md)** — the endpoint, its parameters and its
+  limits.
+- **[Contributing](CONTRIBUTING.md)** — a new renderer needs an entry in the
+  threshold table and has to pass `blazontest.Suite`.
 
 ## License
 

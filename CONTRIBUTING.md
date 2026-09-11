@@ -128,10 +128,14 @@ looks like now, and why the new value is still a useful bound.
    Numbers say whether a renderer passes. A contact sheet is how you find out
    whether it is any good.
 
-7. Regenerate the gallery in the same pull request:
+7. Describe it in one row of the table in `docs/renderers.md`, above the
+   gallery markers — what it draws, and whether the version can be read back
+   out of it.
+
+8. Regenerate the gallery in the same pull request:
 
    ```
-   go run ./cmd/blazon gallery -o docs/gallery -readme README.md
+   go run ./cmd/blazon gallery -o docs/gallery -readme docs/renderers.md
    ```
 
    Run it twice. The second run must produce no diff. CI regenerates the

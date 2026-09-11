@@ -34,7 +34,7 @@ jobs:
           cache: true
 
       - name: regenerate
-        run: go run ./cmd/blazon gallery -o docs/gallery -readme README.md
+        run: go run ./cmd/blazon gallery -o docs/gallery -readme docs/renderers.md
 
       - name: the committed gallery must match
         shell: bash
@@ -46,7 +46,7 @@ jobs:
           echo "The committed gallery does not match what the code renders."
           echo "Run this and commit the result:"
           echo
-          echo "  go run ./cmd/blazon gallery -o docs/gallery -readme README.md"
+          echo "  go run ./cmd/blazon gallery -o docs/gallery -readme docs/renderers.md"
           echo
           git diff --stat
           exit 1
@@ -56,7 +56,7 @@ jobs:
         run: |
           # A non-idempotent generator would make this job fail on every push
           # even when nothing changed.
-          go run ./cmd/blazon gallery -o docs/gallery -readme README.md
+          go run ./cmd/blazon gallery -o docs/gallery -readme docs/renderers.md
           if ! git diff --quiet; then
             echo "The gallery generator is not idempotent: a second run changed files."
             git diff --stat
