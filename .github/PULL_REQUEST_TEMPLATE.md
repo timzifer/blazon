@@ -14,7 +14,7 @@
 
 If this changes what any renderer draws:
 
-- [ ] Gallery regenerated (`go run ./cmd/blazon gallery -o docs/gallery -readme README.md`),
+- [ ] Gallery regenerated (`go run ./cmd/blazon gallery -o docs/gallery -readme docs/renderers.md`),
       and a second run produced no diff
 - [ ] I looked at the image diff
 
